@@ -1036,4 +1036,4 @@ loadResearchStatus();
 showEncoderCapability();
 const date = new Intl.DateTimeFormat('en-IN', { weekday:'long', day:'numeric', month:'long' }).format(new Date());
 document.querySelector('#today-date').textContent = date.toUpperCase();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=31').catch(() => {}));
+if ('serviceWorker' in navigator) window.addEventListener('load', async () => { try { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(reg => reg.unregister())); if (window.caches) { const keys = await caches.keys(); await Promise.all(keys.map(key => caches.delete(key))); } } catch {} });
