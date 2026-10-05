@@ -1,0 +1,20 @@
+{
+  "name": "festival-of-bharat-ai-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Festival of Bharat AI Reel Studio",
+  "scripts": {
+    "start": "node server.js",
+    "worker": "node background-worker.js",
+    "studio": "node background-worker.js",
+    "typecheck": "node scripts/typecheck.js",
+    "build": "node scripts/build.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "verify:production": "node scripts/verify-production.js",
+    "verify:overnight": "node scripts/verify-overnight.js",
+    "verify:vercel": "node scripts/verify-vercel.js"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}
