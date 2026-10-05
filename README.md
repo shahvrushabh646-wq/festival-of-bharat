@@ -79,3 +79,6 @@ The project now has dependency-free Node scripts: `node scripts/typecheck.js`, `
 
 
 <!-- Vercel redeploy trigger: 2026-10-05 -->
+
+
+<!-- Final clean Render deployment marker: 2026-10-05T11:17:56.106Z -->
