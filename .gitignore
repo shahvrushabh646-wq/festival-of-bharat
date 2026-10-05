@@ -1,0 +1,7 @@
+.env
+node_modules/
+dist/
+data/assets/
+data/renders/
+data/jobs/
+data/instagram/
