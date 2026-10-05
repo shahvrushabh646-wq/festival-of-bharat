@@ -285,6 +285,7 @@ async function workerControl(req,res,id){let body='';for await(const chunk of re
 
 const server = http.createServer(async (req,res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  if (url.pathname === '/healthz' && req.method === 'GET') return send(res, 200, { ok:true, service:'festival-of-bharat', runtime:process.version });
   if (url.pathname === '/api/status') {
     return send(res, 200, {
       youtube:{ ready:Boolean(process.env.YOUTUBE_API_KEY), optional:true, label:process.env.YOUTUBE_API_KEY ? 'YouTube live metrics available' : 'Live YouTube metrics unavailable; the connector is optional' },
