@@ -1036,4 +1036,4 @@ loadResearchStatus();
 showEncoderCapability();
 const date = new Intl.DateTimeFormat('en-IN', { weekday:'long', day:'numeric', month:'long' }).format(new Date());
 document.querySelector('#today-date').textContent = date.toUpperCase();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=31').catch(() => {}));
