@@ -76,3 +76,6 @@ The four concept pillars now use separate eight-scene plans with explicit shot r
 `production-planning.js` is a shared planning/analysis boundary. `analyzeAsset()` reports `METADATA`, returns unknown visual attributes as empty/unknown, and explicitly says when vision is unavailable; the hosted vision route adds separately labelled frame-level analysis when configured. Production records keep missing Instagram performance fields null; learning summaries require minimum samples and describe observations without causal claims. Per-reel state history records legal transitions through asset collection, rights validation, edit, render, QC, review and human decisions.
 
 The project now has dependency-free Node scripts: `node scripts/typecheck.js`, `node --test`, and `node scripts/build.js`. If npm is installed, the matching commands are `npm run typecheck`, `npm test`, and `npm run build`. Build output is written to the ignored `dist/` folder. The checked development machine has Node but does not expose an `npm` executable, so `npm install` could not be run here.
+
+
+<!-- Vercel redeploy trigger: 2026-10-05 -->
