@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: festival-of-bharat
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
