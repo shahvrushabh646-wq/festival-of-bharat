@@ -5,9 +5,5 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": null,
-  "cleanUrls": true,
-  "functions": {
-    "api/commons-search.js": { "maxDuration": 60 },
-    "api/commons-media.js": { "maxDuration": 60 }
-  }
+  "cleanUrls": true
 }
