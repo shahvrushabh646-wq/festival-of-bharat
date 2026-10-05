@@ -1,0 +1,3 @@
+'use strict';
+const {searchCommons}=require('../commons');
+module.exports=async function handler(req,res){if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({error:'Method not allowed.'});}const query=String(req.query?.q||new URL(req.url,'https://studio.invalid').searchParams.get('q')||'').trim();if(!query)return res.status(400).json({error:'Enter a topic to search Wikimedia Commons.'});try{return res.status(200).json({query,...await searchCommons(query)});}catch(error){return res.status(502).json({query,error:error.message,source:'Wikimedia Commons',results:[],diagnostics:{httpStatus:null,raw:0,returned:0,rejected:0,requestFailed:true}});}};
