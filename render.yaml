@@ -4,9 +4,9 @@ services:
     runtime: node
     plan: free
     buildCommand: npm install --no-audit --no-fund
-    startCommand: npm start
+    startCommand: node server.js
     healthCheckPath: /healthz
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
-        value: "22.22.0"
+        value: "22.16.0"
