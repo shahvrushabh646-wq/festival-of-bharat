@@ -15,6 +15,6 @@
     "verify:vercel": "node scripts/verify-vercel.js"
   },
   "engines": {
-    "node": "22.16.0"
+    "node": "22.x"
   }
 }
