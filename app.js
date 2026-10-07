@@ -602,7 +602,11 @@ async function importAndAssignAsset(asset){
   setWork('Importing selected media',asset.title,asset.source==='User Upload'?'Assigning the already saved local file with its user-confirmed rights record.':'Downloading the selected Wikimedia file into the local project with its source and licence record.');
   try{
     let selected=asset;if(asset.source!=='User Upload'){if(localStudioMode()){const response=await fetch('/api/assets/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(asset)});if(response.ok){selected=(await parseApiJson(response)).asset;}else{let detail={};try{detail=await parseApiJson(response);}catch{}if(![413,501,503].includes(response.status))throw new Error(detail.error||`Asset import returned HTTP ${response.status}.`);selected=await window.FOBAssetImport.importAsset(asset);}}else selected=await window.FOBAssetImport.importAsset(asset);}
-    slot.asset={...selected,importedAt:new Date().toISOString()};saved.assetTarget=null;reel.status='waiting-for-media';reel.renderUrl=null;reel.qc=null;if(saved.currentRun)saved.currentRun.assetSearch={...(saved.currentRun.assetSearch||{}),status:'ready',importedAt:new Date().toISOString(),message:'Selected media file assigned with its source and rights record.'};persist();render();renderAssetResults();renderPipeline();showToast(`Assigned ${asset.mediaType} with source record.`);
+    const probeScene={asset:{...selected}};await loadSceneMedia(probeScene);
+    selected={...probeScene.asset};
+    slot.asset={...selected,importedAt:new Date().toISOString(),loadVerifiedAt:new Date().toISOString()};saved.assetTarget=null;reel.status='waiting-for-media';reel.renderUrl=null;reel.qc=null;
+    if(saved.currentRun)saved.currentRun.assetSearch={...(saved.currentRun.assetSearch||{}),status:'ready',importedAt:new Date().toISOString(),message:'Selected media file assigned and browser-load verified.'};
+    persist();render();renderAssetResults();renderPipeline();showToast(`Assigned and verified ${asset.mediaType} with source record.`);
   }catch(error){const message=error.message||'unknown import error';const isAssetFailure=asset.source!=='User Upload';showToast(isAssetFailure?`ASSET_COLLECTION_FAILED · Real asset download failed — ${message}; no fake asset substituted.`:`Import failed: ${message}`);const status=document.querySelector('#asset-status');if(status&&isAssetFailure)status.textContent=`ASSET_COLLECTION_FAILED · Real asset download failed — ${message}; no fake asset substituted.`;}
   finally{setWork(null);}
 }
@@ -853,18 +857,42 @@ function showRenderBlocked(reel,reason){
   persist();renderPipeline();render();showToast(reason);
 }
 
+async function resolvePlayableAsset(asset){
+  if(!asset)throw new Error('Selected media record is missing.');
+  if(asset.browserAssetKey&&window.FOBAssetImport?.restore){
+    try{const restored=await window.FOBAssetImport.restore(asset);if(restored?.localUrl)Object.assign(asset,restored);}
+    catch(error){throw new Error(`Stored browser media could not be restored for “${asset.title||asset.filename}”: ${error.message||'restore failed'}`);}
+  }
+  if(!asset.localUrl)throw new Error(`No playable local file is available for “${asset.title||asset.filename}”. Re-select or re-upload this asset.`);
+  return asset;
+}
+function waitForMediaEvent(media,eventName,errorName,timeout=12000){
+  return new Promise((resolve,reject)=>{
+    let settled=false;const finish=(fn,value)=>{if(settled)return;settled=true;clearTimeout(timer);media.removeEventListener(eventName,onReady);media.removeEventListener('error',onError);fn(value);};
+    const onReady=()=>finish(resolve);const onError=()=>finish(reject,new Error(errorName));
+    const timer=setTimeout(()=>finish(reject,new Error(`${errorName} (timed out after ${Math.round(timeout/1000)}s)`)),timeout);
+    media.addEventListener(eventName,onReady,{once:true});media.addEventListener('error',onError,{once:true});
+  });
+}
 async function loadSceneMedia(scene){
-  const asset=scene.asset;if(!asset?.localUrl)throw new Error('Every scene needs an imported real media file.');
+  const asset=await resolvePlayableAsset(scene.asset);
   if(!asset.metadataComplete||!asset.creator||!asset.license||!asset.pageUrl)throw new Error(`Rights metadata is incomplete for “${asset.title}”.`);
+  const label=asset.title||asset.filename||'selected media';
   if(asset.mediaType==='video'){
-    const video=document.createElement('video');video.muted=true;video.playsInline=true;video.preload='auto';video.src=asset.localUrl;
-    await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=()=>reject(new Error(`Could not decode video ${asset.title}.`));video.load();});if(!Number.isFinite(video.duration)||video.duration<=0||!video.videoWidth||!video.videoHeight)throw new Error(`Video metadata or duration is invalid for ${asset.title}.`);asset.durationSeconds=video.duration;
-    scene.trimStart=Math.max(0,Math.min(video.duration-.1,Number(scene.trimStart)||0));scene.trimEnd=Math.max(scene.trimStart+.1,Math.min(video.duration,Number(scene.trimEnd)||Math.min(video.duration,scene.seconds||1.5)));video.currentTime=scene.trimStart;
-    await new Promise(resolve=>{if(video.seeking){video.onseeked=resolve;setTimeout(resolve,800);}else resolve();});
+    const video=document.createElement('video');video.muted=true;video.playsInline=true;video.preload='auto';
+    video.src=asset.localUrl;video.load();
+    await waitForMediaEvent(video,'loadedmetadata',`Could not load video “${label}”. The selected file may be unavailable or corrupted.`);
+    if(!Number.isFinite(video.duration)||video.duration<=0||!video.videoWidth||!video.videoHeight)throw new Error(`Video “${label}” loaded but has invalid metadata.`);
+    asset.durationSeconds=video.duration;
+    scene.trimStart=Math.max(0,Math.min(Math.max(.1,video.duration-.1),Number(scene.trimStart)||0));
+    scene.trimEnd=Math.max(scene.trimStart+.1,Math.min(video.duration,Number(scene.trimEnd)||Math.min(video.duration,scene.seconds||1.5)));
+    video.currentTime=scene.trimStart;
+    if(video.seeking)await waitForMediaEvent(video,'seeked',`Could not seek video “${label}” to the selected start point.`,8000).catch(()=>{});
     return {media:video,data:scene,trimStart:scene.trimStart,trimEnd:scene.trimEnd};
   }
-  const image=new Image();image.src=asset.localUrl;
-  await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(new Error(`Could not decode photo ${asset.title}.`));});
+  const image=new Image();image.decoding='async';image.src=asset.localUrl;
+  await waitForMediaEvent(image,'load',`Could not load photo “${label}”. The selected file may be unavailable, expired, or corrupted.`);
+  if(!image.naturalWidth||!image.naturalHeight)throw new Error(`Photo “${label}” loaded without readable dimensions.`);
   return {media:image,data:scene};
 }
 
@@ -924,7 +952,7 @@ async function renderReel(id){
     let savedMaster;const response=await fetch('/api/renders',{method:'POST',headers:{'Content-Type':'video/mp4','X-Render-QC':encoded},body:blob});if(response.ok){const data=await parseApiJson(response);Object.assign(qc,data.render.qc);savedMaster={url:data.render.url};}else if([404,405,413,501].includes(response.status)){savedMaster=await window.FOBAssetImport.saveMaster(id,blob);qc.checks.fileExists=true;qc.checks.finalMp4Valid=true;qc.storageMode='browser-indexeddb';}else{let data={};try{data=await parseApiJson(response);}catch{}throw new Error(data.error||`Render save failed with HTTP ${response.status}.`);}
     if(!qc.checks.fileExists||!qc.checks.finalMp4Valid||Object.values(qc.checks).some(ok=>ok!==true))throw new Error('Saved-file QC did not pass. No READY master was recorded.');
     const finishedAt=new Date().toISOString();Object.assign(stored,reel,{status:'ready',qc,renderUrl:savedMaster.url,browserMasterKey:savedMaster.key||null,qcCompletedAt:finishedAt,renderedAt:finishedAt});advanceReelState(stored,'READY_FOR_REVIEW');saved.rendered[id]=savedMaster.url;delete saved.edits[id];persist();render();renderPipeline();showToast('MP4 saved · decode, H.264, dimensions, duration and media QC passed.');
-  }catch(error){stored.status='blocked';stored.qc=currentQc?{...currentQc,error:error.message}:{error:error.message};setReelProductionState(stored,'FAILED');if(currentQc)stored.qcCompletedAt=new Date().toISOString();persist();render();renderPipeline();showToast(`QC blocked · ${error.message}`);}
+  }catch(error){stored.status='blocked';const detail=String(error?.message||'Unknown media/render error');stored.qc=currentQc?{...currentQc,error:detail}:{error:detail};setReelProductionState(stored,'FAILED');if(currentQc)stored.qcCompletedAt=new Date().toISOString();persist();render();renderPipeline();showToast(`QC blocked · ${detail}`);}
   finally{if(stream)stream.getTracks().forEach(track=>track.stop());document.querySelector('.render-qc-video')?.remove();setWork(null);}
 }
 
